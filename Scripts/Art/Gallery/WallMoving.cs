@@ -1,6 +1,7 @@
 using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class WallMoving : MonoBehaviour
 {
@@ -35,13 +36,45 @@ public class WallMoving : MonoBehaviour
     public void ResetWall(int doorIndex)
     {
         index = 0;
-        galleryManager.currentSet = 0;
+        galleryManager.currentSetIndex = 0;
         if (doorIndex == 0)
             westernArt_wallObj.transform.localPosition = originWall[0];
         else if (doorIndex == 1)
             galleryManager.ourClass_galleryWall.transform.localPosition = originWall[1];
         else if (doorIndex == 2)
             galleryManager.eastArt_galleryWall.transform.localPosition = originWall[2];
+    }
+
+    public void UpdateWall(int size)
+    {
+        if (size == 0)
+        {
+            ResetWall(1);
+        }
+        else
+        {
+            int maxSetCount = (size % 3 == 0) ? size / 3 - 1 : size / 3;
+
+            // 만약 현재 벽이 없다면
+            if (maxSetCount < galleryManager.currentSetIndex)
+            {
+                if (maxSetCount == 0) // 첫번째 벽을 보여줌.
+                {
+                    ResetWall(1);
+                }
+                else //제일 마지막 벽을 보여줌.
+                {
+                    index = maxSetCount;
+                    galleryManager.currentSetIndex = maxSetCount;
+                    galleryManager.ourClass_galleryWall.transform.localPosition = class_targetPos[index];
+                }
+            }
+            else
+            {
+                // 현재 벽이 있다면
+                // 현재 벽을 보여줌                
+            }
+        }
     }
 
     public void MovingWall(bool isNext)

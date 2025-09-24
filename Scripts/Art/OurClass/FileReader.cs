@@ -4,14 +4,33 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
+[System.Serializable]
+public class SpriteData
+{
+    public Sprite sprite;
+    public string filePath;
+
+    public bool isWidth;
+    public string personName;
+
+    public SpriteData( Sprite sprite, string filePath, bool isWidth)
+    {
+        this.sprite = sprite;
+        this.filePath = filePath;
+        this.isWidth = isWidth;
+    }
+}
+
 public class FileReader : MonoBehaviour
 {
     public GalleryManager galleryManager;
     public CustomDropdownManager dropdownManager;
+    public JsonManager jsonManager;
     
     public Material targetMaterial;
     public GameObject obj;
     public Sprite[] sprites;
+    public List<SpriteData> spriteDatas = new List<SpriteData>();
 
     // 스크린샷
     private Texture2D tex;
@@ -55,6 +74,8 @@ public class FileReader : MonoBehaviour
             string filePath = filePaths[i];
             byte[] fileData = File.ReadAllBytes(filePath);
 
+           
+
             Texture2D texture = new Texture2D(2, 2);
             if (texture.LoadImage(fileData))
             {
@@ -64,21 +85,48 @@ public class FileReader : MonoBehaviour
                     new Vector2(0.5f, 0.5f)
                 );
 
-                sprites[fileCount - 1 - i] = sprite;
+                int index = fileCount - 1 - i;
+                sprites[index] = sprite;
+
+                bool isWidth = texture.width > texture.height;
+                SpriteData spriteData = new SpriteData(sprite, filePath, isWidth);
+
+                // 제이슨 파일
+                var existingData = jsonManager.jsonDatas.Find(data => data.filePath == filePath);
+                if (existingData != null) spriteData.personName = existingData.personName;
+
+                spriteDatas.Add(spriteData);
             }
         }
+        spriteDatas.Reverse();
     }
 
     public void DestroySprites()
     {
-        if (sprites == null) return;
-
-        for (int i = 0; i < sprites.Length; i++)
+        // sprites 배열 정리
+        if (sprites != null)
         {
-            sprites[i] = null;
+            for (int i = 0; i < sprites.Length; i++)
+            {
+                if (sprites[i] != null)
+                {
+                    Destroy(sprites[i].texture); // 텍스처 메모리 해제
+                    Destroy(sprites[i]);         // 스프라이트 해제
+                    sprites[i] = null;
+                }
+            }
+            sprites = null;
         }
 
-        sprites = null;
+        // spriteDatas 리스트도 정리
+        if (spriteDatas != null)
+        {
+            foreach (var data in spriteDatas)
+            {
+                data.sprite = null; // 이미 Destroy 되었으므로 null 처리
+            }
+            spriteDatas.Clear();
+        }
     }
 
     public void DestroyFile()
@@ -112,6 +160,82 @@ public class FileReader : MonoBehaviour
             {
                 Debug.LogError("예상치 못한 오류: " + filePath + "\n" + ex.Message);
             }
+        }
+        jsonManager.ClearAllCaptures();
+    }
+
+    public void DestroyFile(int spriteIndex)
+    {
+        string folderPath = dropdownManager.GetCurrentPath();
+        if (!Directory.Exists(folderPath))
+        {
+            // 폴더가 존재하지 않습니다
+            return;
+        }
+
+        string[] filePaths = Directory.GetFiles(folderPath, "*.png");
+        if (filePaths.Length == 0)
+        {
+            // 삭제할 PNG 파일이 없습니다
+            return;
+        }
+
+        int fileCount = filePaths.Length;
+
+        if (spriteIndex < 0 || spriteIndex >= fileCount)
+        {
+            // 잘못된 인덱스
+            return;
+        }
+
+        int fileIndex = fileCount - 1 - spriteIndex;
+        string filePath = filePaths[fileIndex];
+
+        try
+        {
+            Debug.Log("파일 삭제 시도: " + filePath);
+            File.Delete(filePath);
+
+            Debug.Log("JSON 찾기 시도");
+            if (jsonManager == null)
+            {
+                Debug.LogError("jsonManager가 null임!");
+                return;
+            }
+            if (jsonManager.jsonDatas == null)
+            {
+                Debug.LogError("jsonManager.jsonDatas가 null임!");
+                return;
+            }
+
+            var existingData = jsonManager.jsonDatas.Find(data => data.filePath == filePath);
+            if (existingData != null)
+            {
+                Debug.Log("JSON 데이터 발견, 삭제 시도");
+                jsonManager.jsonDatas.Remove(existingData);
+
+                CaptureDataList newData = new CaptureDataList { items = jsonManager.jsonDatas };
+                string jsonPath = jsonManager.GetJsonPath(); // JSON 저장 경로
+                Debug.Log("JSON 저장 경로: " + jsonPath);
+
+                string jsonNew = JsonUtility.ToJson(newData, true);
+                File.WriteAllText(jsonPath, jsonNew);
+                Debug.Log("JSON 갱신 완료");
+            }
+            else
+            {
+                Debug.Log("JSON 데이터 없음");
+            }
+
+            // 파일 삭제 성공
+        }
+        catch (IOException ioEx)
+        {
+            Debug.LogError("파일 삭제 중 오류 발생: " + filePath + "\n" + ioEx.Message);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError("예상치 못한 오류: " + filePath + "\n" + ex.Message);
         }
     }
 
@@ -203,4 +327,7 @@ public class FileReader : MonoBehaviour
         tex = null;
         uiManager.SetCanvasActive(true);
     }
+
+    // 이름이랑 이미지 저장
+
 }

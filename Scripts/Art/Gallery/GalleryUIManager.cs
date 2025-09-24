@@ -1,9 +1,14 @@
+using MoreMountains.Tools;
 using System;
 using System.Collections;
-using Unity.VisualScripting.Antlr3.Runtime.Tree;
+using System.Runtime.InteropServices;
+using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
+using UnityEngine.Windows;
+using static Unity.Burst.Intrinsics.X86.Avx;
 
 public class GalleryUIManager : MonoBehaviour
 {
@@ -12,6 +17,7 @@ public class GalleryUIManager : MonoBehaviour
     public GameObject bodyPool;
     public GameObject jointPool;
 
+    [Header("서양화")]
     public GameObject[] contentGroup; // 0 : 해바라기, 1 : 고흐의 방, 2 : 별이 빛나는 밤, 3 : 까마귀
     public GameObject[] pictureGroup;
     public GameObject[] pictureBtn1;
@@ -27,9 +33,29 @@ public class GalleryUIManager : MonoBehaviour
     public bool videoReady = false;
     public Coroutine btnCoroutine = null;
 
+    [Header("우리반 전시관")]
+    // 이름 부분.
+    public GameObject[] nameTags;
+    public GameObject[] inputFields;
+
+    // 삭제 부분.
+    public GameObject[] toggle_width_ver;
+    public GameObject[] toggle_height_ver;
+    public GameObject deleteWin;
+    public GameObject deleteAllWin;
+
     private void Start()
     {
         ResetVideo();
+        InitToggle();
+
+        for (int i = 0; i < inputFields.Length; i++)
+        {
+            int index = i;
+            var inputField = inputFields[i].GetComponent<InputField>();
+            inputField.onValueChanged.AddListener((value) => OnValueChanged(value, index));
+            inputField.onEndEdit.AddListener((value) => OnValueChangedEndEdit(value, index));
+        }
     }
 
     public void ResetVideo()
@@ -275,6 +301,170 @@ public class GalleryUIManager : MonoBehaviour
                 starVideo[index].gameObject.SetActive(false);
                 crowVideo[index].gameObject.SetActive(false);
                 break;
+        }
+    }
+
+    // 토글
+    public void InitToggle()
+    {
+        for (int i = 0; i < toggle_width_ver.Length; i++)
+        {
+            int index = i; // 클로저 문제 해결
+            var toggle = toggle_width_ver[i].GetComponent<Toggle>();
+            toggle.onValueChanged.AddListener((value) => OnToggleChanged(index, value, true));
+
+            toggle = toggle_height_ver[i].GetComponent<Toggle>();
+            toggle.onValueChanged.AddListener((value) => OnToggleChanged(index, value, false));
+        }
+    }
+
+    void OnToggleChanged(int index, bool isOn, bool isWidth)
+    {
+        if (isWidth)
+        {
+            if (toggle_width_ver.Length > index && toggle_width_ver[index] != null)
+            {
+                var checkImg = toggle_width_ver[index].transform.GetChild(0).gameObject;
+                checkImg.SetActive(isOn);
+            }
+        }
+        else
+        {
+            if (toggle_height_ver.Length > index && toggle_height_ver[index] != null)
+            {
+                var checkImg = toggle_height_ver[index].transform.GetChild(0).gameObject;
+                checkImg.SetActive(isOn);
+            }
+        }
+    }
+
+    public void ResetToggle()
+    {
+        for (int i = 0; i < toggle_width_ver.Length; i++)
+        {
+            var toggle = toggle_width_ver[i].GetComponent<Toggle>();
+            toggle.isOn = false;
+            toggle_width_ver[i].transform.GetChild(0).gameObject.SetActive(false);
+            toggle_width_ver[i].SetActive(false);
+
+            toggle = toggle_height_ver[i].GetComponent<Toggle>();
+            toggle.isOn = false;
+            toggle_height_ver[i].transform.GetChild(0).gameObject.SetActive(false);
+            toggle_height_ver[i].SetActive(false);
+        }
+    }
+
+    public void DisableToggle()
+    {
+        for (int i = 0; i < toggle_width_ver.Length; i++)
+        {
+            toggle_width_ver[i].SetActive(false);
+            toggle_height_ver[i].SetActive(false);
+        }
+    }
+
+    public void UpdateToggle()
+    {
+        DisableToggle();
+
+        var currentSetIndex = galleryManager.currentSetIndex;
+        var firstIndex = currentSetIndex * 3;
+
+        int count = 0;
+        for (int i = firstIndex; i < firstIndex + 3; i++)
+        {
+            var data = galleryManager.fileReader.spriteDatas;
+            if (i < 0 || i >= data.Count) break;
+
+            var toggleArray = data[i].isWidth ? toggle_width_ver[i] : toggle_height_ver[i];
+            toggleArray.SetActive(true);
+            count++;
+        }
+    }
+
+    public void DeleteToggle()
+    {
+        var fileReader = galleryManager.fileReader;
+        var count = fileReader.spriteDatas.Count;
+        var afterSize = fileReader.spriteDatas.Count;
+        for (int i = count - 1; i >= 0; i--)
+        {
+            bool isChecked = toggle_width_ver[i].GetComponent<Toggle>().isOn ||
+                             toggle_height_ver[i].GetComponent<Toggle>().isOn;
+            if (isChecked)
+            {
+                int spriteIndex = i; // spriteDatas index
+                fileReader.DestroyFile(spriteIndex);
+                afterSize--;
+            }
+        }
+
+        var wallMoving = galleryManager.wallMoving;
+        wallMoving.UpdateWall(afterSize);
+
+        //UpdateNameTag();
+    }
+
+    // 삭제 팝업
+    public void ActiveDeleteWin(bool isActive)
+    {
+        deleteWin.SetActive(isActive);
+    }
+
+    public void ActiveDeleteAllWin(bool isActive)
+    {
+        deleteAllWin.SetActive(isActive);
+    }
+
+    // 이름 입력
+    private void OnValueChanged(string value, int index)
+    {
+        int firstIndex = galleryManager.currentSetIndex * 3;
+        var fileReader = galleryManager.fileReader;
+        var data = fileReader.spriteDatas;
+        data[firstIndex + index].personName = value;
+    }
+
+    private void OnValueChangedEndEdit(string value, int index)
+    {
+        int firstIndex = galleryManager.currentSetIndex * 3;
+        var data = galleryManager.fileReader.spriteDatas;
+        data[firstIndex + index].personName = value;
+
+        // JSON에 저장
+        string filePath = data[firstIndex + index].filePath; // 스크린샷 경로라고 가정
+        var jsonManager = galleryManager.classManager.jsonManager;
+        jsonManager.SaveCapture(value, filePath);
+
+        Debug.Log(value + "저장");
+    }
+
+    public void DisableNameTag()
+    {
+        for(int i =0; i< nameTags.Length; i++)
+            nameTags[i].SetActive(false);
+    }
+
+    public void UpdateNameTag()
+    {
+        int firstIndex = galleryManager.currentSetIndex * 3;
+        var data = galleryManager.fileReader.spriteDatas;
+        
+        for (int i = 0; i < 3; i++)
+        {
+            int index = firstIndex + i;
+            var inputField = inputFields[i].GetComponent<InputField>();
+
+            if (index < data.Count)
+            {
+                inputField.text = data[index].personName;
+                nameTags[i].SetActive(true);
+            }
+            else
+            {
+                //inputField.text = string.Empty;
+                nameTags[i].SetActive(false);
+            }
         }
     }
 }

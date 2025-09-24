@@ -21,10 +21,12 @@ public class CraftsManager : MonoBehaviour
     public GameObject walkCamera;
     public GameObject wallCamera;
     public GameObject _3DLight;
+    public GameObject _3DLight2;
    
     public int currentSet = 0;
     public int setCount = -1;
     public int currentIndex;
+    public bool isSculpture = false;
 
     private void Start()
     {
@@ -40,7 +42,8 @@ public class CraftsManager : MonoBehaviour
         wallMoving.manager = this;
 
         currentSet = 0;
-        setCount = 3;
+        if (isSculpture) setCount = 2;
+        else setCount = 3;
         currentIndex = 0;
 
         StartCoroutine(coWalkMap());

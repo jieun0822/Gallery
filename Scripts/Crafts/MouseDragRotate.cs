@@ -26,6 +26,7 @@ public class MouseDragRotate : MonoBehaviour
     private GameObject _3DObj;
     private int currentIndex = -1;
 
+    public bool isSculpture = false;
 
     public void Init()
     {
@@ -60,7 +61,7 @@ public class MouseDragRotate : MonoBehaviour
         if (isDragging)
         {
             Vector3 delta = Input.mousePosition - lastMousePosition;
-            float rotX = delta.y * 90 * Time.deltaTime;
+            float rotX = isSculpture? -delta.y * 90 * Time.deltaTime : delta.y * 90 * Time.deltaTime;
             float rotY = -delta.x * 100 * Time.deltaTime;
 
             // 먼저 월드 기준으로 Y축 회전

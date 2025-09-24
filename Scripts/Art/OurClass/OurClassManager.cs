@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Xml.Schema;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -10,12 +11,17 @@ public class OurClassManager : MonoBehaviour
     [Header("Scripts")]
     public GalleryManager galleryManager;
     public FileReader fileReader;
+    public JsonManager jsonManager;
     public FadeController fadeController;
     public CopyWebcam copyWebcam;
     public ScreenshotCapture screenshotCapture;
 
     [Header("Start_UI")]
     public GameObject classUI;
+    public GameObject basicUI;
+
+    public GameObject deleteUI;
+    public bool deleteMode = false;
 
     [Header("Picture_UI")]
     public GameObject pictureUI;
@@ -56,7 +62,14 @@ public class OurClassManager : MonoBehaviour
     public void SetPainting()
     {
         fileReader.ReadAllFiles();
+        var uiManager = galleryManager.galleryUIManager;
         UpdateCountTxt();
+        if (deleteMode)
+        {
+            uiManager.ResetToggle();
+            uiManager.UpdateToggle();
+        }
+        uiManager.UpdateNameTag();
 
         ResetPainting();
         int count = (fileReader.sprites != null) ? fileReader.sprites.Length : 0;
@@ -135,6 +148,41 @@ public class OurClassManager : MonoBehaviour
         }
     }
 
+    public void ShowDeleteUI(bool isActive)
+    {
+        deleteMode = isActive;
+        basicUI.SetActive(!isActive);
+        deleteUI.SetActive(isActive);
+
+        var menuManager = galleryManager.menuManager;
+        if (!isActive)
+        {
+            // 메뉴.
+            menuManager.backBtn.onClick.RemoveListener(CloseDeleteUI);
+            menuManager.backBtnList.Remove("CloseDeleteUI");
+
+            menuManager.backBtn.onClick.AddListener(galleryManager.MoveFromGalleryToDoor);
+            menuManager.backBtnList.Add("MoveFromGalleryToDoor");
+
+            var uiManager = galleryManager.galleryUIManager;
+            uiManager.DisableToggle();
+        }
+        else
+        {
+            // 메뉴.
+            menuManager.backBtn.onClick.RemoveListener(galleryManager.MoveFromGalleryToDoor);
+            menuManager.backBtnList.Remove("MoveFromGalleryToDoor");
+
+            menuManager.backBtn.onClick.AddListener(CloseDeleteUI);
+            menuManager.backBtnList.Add("CloseDeleteUI");
+        }
+    }
+
+    private void CloseDeleteUI()
+    { 
+        ShowDeleteUI(false);
+    }
+
     public void ShowPictureUI(bool isActive)
     {
         if (isActive)
@@ -147,6 +195,8 @@ public class OurClassManager : MonoBehaviour
             menuManager.backBtnList.Add("ClosePictureUI");
 
             ChangeXY(true);
+            var uiManager = galleryManager.galleryUIManager;
+            uiManager.DisableNameTag();
         }
         else
         {
@@ -158,6 +208,9 @@ public class OurClassManager : MonoBehaviour
             menuManager.backBtnList.Add("MoveFromGalleryToDoor");
 
             galleryManager.ShowGallery(true);
+            var uiManager = galleryManager.galleryUIManager;
+            uiManager.UpdateNameTag();
+            
             endUI.SetActive(false);
             fanfareVideo.Stop();
 

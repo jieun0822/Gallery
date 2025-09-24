@@ -63,7 +63,6 @@ public class GalleryManager : MonoBehaviour
     [Header("상세창")]
     public Image explainImg;
     public GameObject activityBtn;
-    public GameObject playerNumImg;
     public GameObject contentTxt;
     public GameObject[] leftArrow;
     public GameObject[] rightArrow;
@@ -73,8 +72,8 @@ public class GalleryManager : MonoBehaviour
     public Coroutine playSoundCoroutine;
 
     private string currentArt;
-    public int currentSet = 0;
-    public int setCount = -1;
+    public int currentSetIndex = 0;
+    public int maxSetCount = -1;
     private bool isMovingWall = false;
 
     private void Start()
@@ -227,7 +226,7 @@ public class GalleryManager : MonoBehaviour
             }
 
             doorObj.SetActive(false);
-            galleryInit();
+            GalleryInit();
             wallMoving.ResetWall(index);
 
             cameraWalk.SetCart(index);
@@ -278,7 +277,7 @@ public class GalleryManager : MonoBehaviour
 
         doorMovingCamera.SetActive(false);
         doorObj.SetActive(false);
-        galleryInit();
+        GalleryInit();
         movingCamera.SetActive(true);
         startCamera.SetActive(false);
 
@@ -308,7 +307,7 @@ public class GalleryManager : MonoBehaviour
         cameraWalk.cart.SplinePosition = 1;
     }
 
-    public void galleryInit()
+    public void GalleryInit()
     {
         allGalllery.SetActive(true);
 
@@ -356,7 +355,7 @@ public class GalleryManager : MonoBehaviour
         {
             introTxt.SetActive(false);
             contentTxt.SetActive(true);
-            setCount = 3;
+            maxSetCount = 3;
             left = leftArrow[0];
             right = rightArrow[0];
         }
@@ -368,7 +367,7 @@ public class GalleryManager : MonoBehaviour
             classManager.classUI.SetActive(true);
             classManager.SetPainting();
             int length = (fileReader.sprites == null) ? 0 : fileReader.sprites.Length;
-            setCount = (length % 3 == 0) ? length / 3 - 1 : length / 3;
+            maxSetCount = (length % 3 == 0) ? length / 3 - 1 : length / 3;
             left = leftArrow[1];
             right = rightArrow[1];
         }
@@ -420,7 +419,7 @@ public class GalleryManager : MonoBehaviour
             contentTxt.SetActive(false);
             westernArt_galleryWall.SetActive(false);
 
-            for (int i = 0; i < westernArtArea.Count ; i++)
+            for (int i = 0; i < westernArtArea.Count; i++)
                 westernArtArea[i].SetActive(false);
 
             leftArrow[0].SetActive(false);
@@ -433,6 +432,10 @@ public class GalleryManager : MonoBehaviour
 
             leftArrow[1].SetActive(false);
             rightArrow[1].SetActive(false);
+
+            var nameTag = galleryUIManager.nameTags;
+            for (int i = 0; i < nameTag.Length; i++)
+                nameTag[i].SetActive(false);
         }
         else if (artIndex == 2)
         {
@@ -446,7 +449,7 @@ public class GalleryManager : MonoBehaviour
             rightArrow[0].SetActive(false);
         }
 
-        setCount = -1;
+        maxSetCount = -1;
 
         galleryObj2.SetActive(false);
         westernArt_Camera.SetActive(false);
@@ -457,7 +460,7 @@ public class GalleryManager : MonoBehaviour
     public void UpdateWallUI()
     {
         int length = (fileReader.sprites == null) ? 0 : fileReader.sprites.Length;
-        setCount = (length % 3 == 0) ? length / 3 - 1 : length / 3;
+        maxSetCount = (length % 3 == 0) ? length / 3 - 1 : length / 3;
       
         if (length <= 3)
         {
@@ -466,12 +469,12 @@ public class GalleryManager : MonoBehaviour
             return;
         }
 
-        if (currentSet == 0)
+        if (currentSetIndex == 0)
         {
             leftArrow[1].SetActive(false);
             rightArrow[1].SetActive(true);
         }
-        else if (currentSet == setCount)
+        else if (currentSetIndex == maxSetCount)
         {
             leftArrow[1].SetActive(true);
             rightArrow[1].SetActive(false);
@@ -490,7 +493,7 @@ public class GalleryManager : MonoBehaviour
         isMovingWall = true;
 
         wallMoving.MovingWall(isNext);
-        currentSet = isNext ? ++currentSet : --currentSet;
+        currentSetIndex = isNext ? ++currentSetIndex : --currentSetIndex;
         StartCoroutine(coShowBtn());
     }
 
@@ -506,6 +509,11 @@ public class GalleryManager : MonoBehaviour
         {
             for (int i = 0; i < eastArtArea.Count; i++)
                 eastArtArea[i].SetActive(false);
+        }
+        else if (artIndex == 1)
+        {
+            galleryUIManager.DisableToggle();
+            galleryUIManager.DisableNameTag();
         }
 
         yield return new WaitForSeconds(1f);
@@ -526,12 +534,12 @@ public class GalleryManager : MonoBehaviour
             right = rightArrow[1];
         }
 
-        if (currentSet == 0)
+        if (currentSetIndex == 0)
         {
             left.SetActive(false);
             right.SetActive(true);
         }
-        else if (currentSet == setCount)
+        else if (currentSetIndex == maxSetCount)
         {
             left.SetActive(true);
             right.SetActive(false);
@@ -544,13 +552,18 @@ public class GalleryManager : MonoBehaviour
 
         if (artIndex == 0)
         {
-            for (int i = 3 * currentSet; i < 3 + 3 * currentSet; i++)
+            for (int i = 3 * currentSetIndex; i < 3 + 3 * currentSetIndex; i++)
                 westernArtArea[i].SetActive(true);
         }
         else if (artIndex == 2)
         {
-            for (int i = 3 * currentSet; i < 3 + 3 * currentSet; i++)
+            for (int i = 3 * currentSetIndex; i < 3 + 3 * currentSetIndex; i++)
                 eastArtArea[i].SetActive(true);
+        }
+        else if (artIndex == 1)
+        {
+            galleryUIManager.UpdateToggle();
+            galleryUIManager.UpdateNameTag();
         }
     }
 
@@ -560,7 +573,6 @@ public class GalleryManager : MonoBehaviour
         // 초기화
         gameManager.targetScene = GameEnums.eScene.None;
         activityBtn.SetActive(false);
-        playerNumImg.SetActive(false);
         galleryUIManager.StopAITeacherVideo(GameEnums.eScene.None, 0);
 
         if (artIndex != 0)
@@ -585,7 +597,6 @@ public class GalleryManager : MonoBehaviour
 
         ChangeImg();
         activityBtn.SetActive(true);
-        playerNumImg.SetActive(true);
         galleryUIManager.PlayAITeacherVideo(gameManager.targetScene, 0);
 
         // 서서히 나타나게
@@ -778,6 +789,11 @@ public class GalleryManager : MonoBehaviour
         classManager.classUI.SetActive(false);
         classManager.endUI.SetActive(false);
         classManager.fanfareVideo.Stop();
+
+        var nameTag = galleryUIManager.nameTags;
+        for (int i = 0; i < nameTag.Length; i++)
+            nameTag[i].SetActive(false);
+
         var soundManager = gameManager.soundManager;
         soundManager.StopFanfareSound();
 
