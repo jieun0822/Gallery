@@ -145,11 +145,19 @@ public class FileReader : MonoBehaviour
             return;
         }
 
+        bool isChanged = false;
+
         foreach (string filePath in filePaths)
         {
             try
             {
                 File.Delete(filePath);
+                var existingData = jsonManager.jsonDatas.Find(data => data.filePath == filePath);
+                if (existingData != null)
+                {
+                    jsonManager.jsonDatas.Remove(existingData);
+                    isChanged = true;
+                }
                 // 파일 삭제 성공
             }
             catch (IOException ioEx)
@@ -161,7 +169,17 @@ public class FileReader : MonoBehaviour
                 Debug.LogError("예상치 못한 오류: " + filePath + "\n" + ex.Message);
             }
         }
-        jsonManager.ClearAllCaptures();
+
+        if (isChanged)
+        {
+            CaptureDataList newData = new CaptureDataList { items = jsonManager.jsonDatas };
+            string jsonPath = jsonManager.GetJsonPath();
+
+            string jsonNew = JsonUtility.ToJson(newData, true);
+            File.WriteAllText(jsonPath, jsonNew);
+
+            Debug.Log("JSON 갱신 완료: " + jsonPath);
+        }
     }
 
     public void DestroyFile(int spriteIndex)
